@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Risk Analysis - Safety Awareness</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Hero Section -->
+        <header class="hero-section">
+            <div class="hero-bg-animation"></div>
+            <div class="hero-content">
+                <h1>Understand Road Risk Before You Travel</h1>
+                <p>Analyze historical accident data to visualize route safety and make informed travel decisions.</p>
+                <button id="scrollToAnalyze" class="btn btn-primary">Analyze Route Risk</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="analysis-section" class="main-content">
+            <!-- Route Input Panel -->
+            <div class="control-panel">
+                <h2>Plan Your Journey</h2>
+                <form id="routeForm">
+                    <div class="input-group">
+                        <input type="text" id="startLocation" required placeholder=" " autocomplete="off">
+                        <label for="startLocation">Start Location</label>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="destination" required placeholder=" " autocomplete="off">
+                        <label for="destination">Destination</label>
+                    </div>
+                    <button type="submit" class="btn btn-analyze" id="analyzeBtn">
+                        <span class="btn-text">Show Risk Analysis</span>
+                        <div class="loader-spinner hidden"></div>
+                    </button>
+                    <div id="analysis-status" class="status-msg hidden">Preparing...</div>
+                </form>
+            </div>
+
+            <!-- Map Visualization -->
+            <div class="map-container">
+                <div id="map" style="width: 100%; height: 100%;"></div>
+            </div>
+
+            <!-- Risk Summary Panel (initially hidden/off-canvas) -->
+            <aside id="riskPanel" class="risk-panel hidden">
+                <div class="panel-header">
+                    <h3>Route Risk Summary</h3>
+                    <button id="closePanel" class="btn-icon">&times;</button>
+                </div>
+
+                <div class="risk-score-section">
+                    <div class="risk-circle-container">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle class="progress-ring__circle-bg" stroke="#e0e0e0" stroke-width="8"
+                                fill="transparent" r="52" cx="60" cy="60" />
+                            <circle id="riskCircle" class="progress-ring__circle" stroke="transparent" stroke-width="8"
+                                fill="transparent" r="52" cx="60" cy="60" />
+                        </svg>
+                        <div class="risk-percentage">
+                            <span id="riskValue">0</span>%
+                        </div>
+                    </div>
+                    <div class="risk-label-container">
+                        <span class="label">Risk Level</span>
+                        <h2 id="riskLevelText">--</h2>
+                    </div>
+                </div>
+
+                <div id="warningBox" class="warning-box">
+                    <span class="icon">⚠️</span>
+                    <p id="warningMessage">Analysis pending...</p>
+                </div>
+
+                <div class="explainability-section">
+                    <h4>Why is this route risky?</h4>
+                    <div class="accordion">
+                        <!-- Factors will be injected here -->
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <p>Disclaimer: This system is a decision-support and awareness tool based on historical data (Kerala
+                    Case Study). It does not provide real-time accident prediction.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+
+</html>
