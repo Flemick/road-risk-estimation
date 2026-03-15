@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pkl
+*.joblib
+*.db
+.env
+instance/*.db
+
+# OS files
+.DS_Store
+Thumbs.db
