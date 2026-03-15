@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskRoutes - Authentication</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .auth-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .auth-logo {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, var(--primary-blue, #2563EB), var(--primary-blue-hover, #1D4ED8));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #edf2f7;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #718096;
+            transition: all 0.3s ease;
+        }
+
+        .auth-tab.active {
+            color: var(--primary-blue, #2563EB);
+            border-bottom: 2px solid var(--primary-blue, #2563EB);
+            margin-bottom: -2px;
+        }
+
+        .auth-form {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .auth-form.active {
+            display: flex;
+        }
+
+        .auth-input-wrapper {
+            position: relative;
+        }
+
+        .auth-input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 12px 15px 12px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            background: #f8fafc;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--primary-blue, #2563EB);
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+            background: white;
+        }
+
+        .auth-btn {
+            background-color: #2563EB;
+            background-image: linear-gradient(135deg, var(--primary-blue, #2563EB), var(--primary-blue-hover, #1D4ED8));
+            color: #ffffff;
+            border: 2px solid #2563EB;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.3);
+        }
+
+        .auth-error {
+            color: var(--risk-high, #EF4444);
+            font-size: 14px;
+            min-height: 20px;
+            margin-top: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .auth-error.show {
+            opacity: 1;
+        }
+
+        .back-home {
+            margin-top: 25px;
+            display: inline-block;
+            color: #718096;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+        
+        .back-home:hover {
+            color: var(--primary-blue, #2563EB);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <div class="auth-logo"><i class="fa-solid fa-shield-halved"></i> RiskRoutes</div>
+        
+        <div class="auth-tabs">
+            <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</div>
+            <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Sign Up</div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="form-login" class="auth-form active" onsubmit="handleAuth(event, 'login')">
+            <div class="auth-input-wrapper">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="login-username" class="auth-input" placeholder="Username" required>
+            </div>
+            <div class="auth-input-wrapper">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="login-password" class="auth-input" placeholder="Password" required>
+            </div>
+            <div id="login-error" class="auth-error" style="display:none; color:red; margin-bottom:10px;"></div>
+            <button type="submit" class="auth-btn" style="display:block; width:100%; min-height:48px; background-color:#2563EB; color:white; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer;">Sign In</button>
+            <div style="margin-top: 15px; font-size: 14px; color: #718096;">Don't have an account? <a href="#" onclick="switchTab('register'); return false;" style="color: #2563EB; font-weight: 600; text-decoration: underline;">Sign Up</a></div>
+        </form>
+
+        <!-- Register Form -->
+        <form id="form-register" class="auth-form" onsubmit="handleAuth(event, 'register')">
+            <div class="auth-input-wrapper">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="reg-username" class="auth-input" placeholder="Choose a Username" required>
+            </div>
+            <div class="auth-input-wrapper">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="reg-password" class="auth-input" placeholder="Create Password" required>
+            </div>
+            <div id="reg-error" class="auth-error" style="display:none; color:red; margin-bottom:10px;"></div>
+            <button type="submit" class="auth-btn" style="display:block; width:100%; min-height:48px; background-color:#2563EB; color:white; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer;">Create Account</button>
+            <div style="margin-top: 15px; font-size: 14px; color: #718096;">Already have an account? <a href="#" onclick="switchTab('login'); return false;" style="color: #2563EB; font-weight: 600; text-decoration: underline;">Log In</a></div>
+        </form>
+        
+        <a href="/" class="back-home"><i class="fa-solid fa-arrow-left"></i> Back to map</a>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            // Update tabs
+            document.getElementById('tab-login').classList.remove('active');
+            document.getElementById('tab-register').classList.remove('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            // Update forms
+            document.getElementById('form-login').classList.remove('active');
+            document.getElementById('form-register').classList.remove('active');
+            document.getElementById('form-' + tab).classList.add('active');
+            
+            // Clear errors
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('reg-error').style.display = 'none';
+        }
+
+        async function handleAuth(event, type) {
+            event.preventDefault();
+            
+            const errorEl = document.getElementById(type === 'login' ? 'login-error' : 'reg-error');
+            errorEl.style.display = 'none';
+            errorEl.classList.remove('show');
+            
+            const username = document.getElementById(type === 'login' ? 'login-username' : 'reg-username').value;
+            const password = document.getElementById(type === 'login' ? 'login-password' : 'reg-password').value;
+            const btn = event.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                console.log("Sending auth request to:", `/api/${type}`);
+                const response = await fetch(`/api/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                console.log("Response status:", response.status);
+                const data = await response.json();
+                console.log("Response data:", data);
+
+                if (response.ok) {
+                    // Success! Redirect to home
+                    window.location.href = '/';
+                } else {
+                    // Show error
+                    errorEl.textContent = data.error || 'Authentication failed.';
+                    errorEl.style.display = 'block';
+                    errorEl.classList.add('show');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error("Auth Exception:", err);
+                alert("An error occurred during authentication. Please check if the server is running correctly.");
+                errorEl.textContent = 'Server/Network error. Check server terminal.';
+                errorEl.style.display = 'block';
+                errorEl.classList.add('show');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

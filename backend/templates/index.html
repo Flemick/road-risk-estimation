@@ -8,12 +8,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
+    <!-- Main Navigation -->
+    <nav class="main-nav">
+        <div class="nav-brand">
+            <i class="fa-solid fa-shield-halved"></i> RiskRoutes
+        </div>
+        <div class="nav-links" id="auth-links">
+            <!-- Populated by JS -->
+            <a href="/auth" class="nav-link">Login / Sign Up</a>
+        </div>
+    </nav>
+
     <div class="app-container">
         <!-- Hero Section -->
         <header class="hero-section">
@@ -34,15 +46,18 @@
                     <div class="input-group">
                         <input type="text" id="startLocation" required placeholder=" " autocomplete="off">
                         <label for="startLocation">Start Location</label>
+                        <div id="startSuggestions" class="suggestions-list hidden"></div>
                     </div>
                     <div class="input-group">
                         <input type="text" id="destination" required placeholder=" " autocomplete="off">
                         <label for="destination">Destination</label>
+                        <div id="destSuggestions" class="suggestions-list hidden"></div>
                     </div>
                     <button type="submit" class="btn btn-analyze" id="analyzeBtn">
                         <span class="btn-text">Show Risk Analysis</span>
                         <div class="loader-spinner hidden"></div>
                     </button>
+                    <div id="frontend-error" class="frontend-error hidden"></div>
                     <div id="analysis-status" class="status-msg hidden">Preparing...</div>
                 </form>
             </div>

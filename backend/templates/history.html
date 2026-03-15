@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskRoutes - My History</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .history-container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 15px;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 12px;
+            background-color: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .history-table td {
+            padding: 16px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        
+        .history-table tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .route-locations {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .location-point {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            color: #334155;
+        }
+
+        .location-point i.fa-location-dot {
+            color: var(--primary-blue);
+        }
+
+        .location-point i.fa-flag-checkered {
+            color: #10b981;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-High { background: #fee2e2; color: #991b1b; }
+        .badge-Medium { background: #fef3c7; color: #92400e; }
+        .badge-Low { background: #d1fae5; color: #065f46; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            color: #cbd5e1;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Navigation -->
+    <nav class="main-nav">
+        <div class="nav-brand">
+            <i class="fa-solid fa-shield-halved"></i> RiskRoutes
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link"><i class="fa-solid fa-map"></i> Back to Map</a>
+        </div>
+    </nav>
+
+    <div class="history-container">
+        <div class="history-header">
+            <h2><i class="fa-solid fa-clock-rotate-left"></i> My Analysis History</h2>
+        </div>
+
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Route Configured</th>
+                    <th>Average Risk Score</th>
+                    <th>Overall Warning Level</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                <tr><td colspan="4" style="text-align: center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading records...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/history');
+                if(!response.ok) {
+                    // Redirect to auth if unauthorized
+                    if(response.status === 401) window.location.href = '/auth';
+                    throw new Error('Failed to load history');
+                }
+                
+                const data = await response.json();
+                const tbody = document.getElementById('history-body');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-map-location-dot"></i>
+                                    <h3>No recent searches found</h3>
+                                    <p>Your analyzed routes will appear here.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(record => `
+                    <tr>
+                        <td style="color: #64748b; font-size: 0.9rem;">${record.timestamp}</td>
+                        <td>
+                            <div class="route-locations">
+                                <div class="location-point"><i class="fa-solid fa-location-dot"></i> ${record.start_location}</div>
+                                <div class="location-point"><i class="fa-solid fa-flag-checkered"></i> ${record.end_location}</div>
+                            </div>
+                        </td>
+                        <td><strong>${record.risk_score}</strong>/100</td>
+                        <td><span class="badge badge-${record.risk_level}">${record.risk_level} Risk</span></td>
+                    </tr>
+                `).join('');
+
+            } catch(e) {
+                console.error(e);
+                document.getElementById('history-body').innerHTML = `<tr><td colspan="4" style="text-align: center; color: red;">Error loading history records.</td></tr>`;
+            }
+        });
+    </script>
+</body>
+</html>

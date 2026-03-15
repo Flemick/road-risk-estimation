@@ -1,15 +1,38 @@
 print("Starting Flask app...")
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session
 import os
 import joblib
-
+import json
+from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
 # --- New ML pipeline imports ---
 from ml.predict_segment import predict_risk
 from utils.feature_extractor import build_feature_dict
 from utils.risk_mapping import risk_category, risk_score
+from models import db, User, SearchHistory
 
+load_dotenv()
 app = Flask(__name__)
+
+# --- Database & Auth Setup ---
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///accident_risk.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+login_manager = LoginManager()
+login_manager.login_view = 'auth_page'
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+with app.app_context():
+    db.create_all()
 
 # ---------------- FACTOR SCORING ----------------
 def calculate_route_factors(all_segment_features):
@@ -141,6 +164,69 @@ except Exception as e:
     model = None
 
 
+# ---------------- AUTHENTICATION & HISTORY ----------------
+@app.route("/auth")
+def auth_page():
+    return render_template("auth.html")
+
+@app.route("/history")
+@login_required
+def history_page():
+    return render_template("history.html")
+@app.route("/api/register", methods=["POST"])
+def register():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 400
+        
+    new_user = User(username=username, password_hash=generate_password_hash(password))
+    db.session.add(new_user)
+    db.session.commit()
+    login_user(new_user)
+    return jsonify({"message": "Registration successful"}), 201
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    user = User.query.filter_by(username=data.get("username")).first()
+    
+    if user and check_password_hash(user.password_hash, data.get("password")):
+        login_user(user)
+        return jsonify({"message": "Login successful", "username": user.username}), 200
+    return jsonify({"error": "Invalid username or password"}), 401
+
+@app.route("/api/logout", methods=["POST"])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({"message": "Logged out"}), 200
+
+@app.route("/api/user_status", methods=["GET"])
+def user_status():
+    if current_user.is_authenticated:
+        return jsonify({"logged_in": True, "username": current_user.username}), 200
+    return jsonify({"logged_in": False}), 200
+
+@app.route("/api/history", methods=["GET"])
+@login_required
+def get_history():
+    history_records = SearchHistory.query.filter_by(user_id=current_user.id).order_by(SearchHistory.timestamp.desc()).limit(15).all()
+    results = []
+    for record in history_records:
+        results.append({
+            "id": record.id,
+            "start_location": record.start_location,
+            "end_location": record.end_location,
+            "risk_level": record.risk_level,
+            "risk_score": record.risk_score,
+            "timestamp": record.timestamp.strftime("%b %d, %Y %H:%M")
+        })
+    return jsonify(results), 200
+
+
 # ---------------- HOME PAGE ----------------
 @app.route("/")
 def home():
@@ -232,6 +318,26 @@ def analyze_route():
          "warning": f"Predicted {final_category} risk conditions along this route.",
          "factors": factors
     }
+
+    # ---------------- SAVE SEARCH HISTORY ----------------
+    if current_user.is_authenticated:
+        try:
+            start_loc = request.json.get("start_location", "Unknown Location")
+            end_loc = request.json.get("end_location", "Unknown Location")
+            
+            # Use raw geocoded names if provided
+            history = SearchHistory(
+                user_id=current_user.id,
+                start_location=start_loc,
+                end_location=end_loc,
+                risk_level=final_category,
+                risk_score=risk_score(avg_risk),
+                factors_json=json.dumps(factors)
+            )
+            db.session.add(history)
+            db.session.commit()
+        except Exception as e:
+            print("Failed to save history:", e)
 
     return jsonify(response)
 

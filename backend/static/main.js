@@ -2,6 +2,7 @@ let map;
 let routeLayer;
 let highlightLayer;
 let currentRouteCoords = [];
+let currentUser = null;
 
 function initMap() {
     map = L.map('map').setView([10.8505, 76.2711], 7);
@@ -40,14 +41,22 @@ function getTimeOfDay() {
 
 async function geocodeLocation(place) {
     try {
+        // Automatically contextualize the search to Thrissur for the demo
+        const searchQuery = place.toLowerCase().includes("thrissur") ? place : `${place}, Thrissur, Kerala`;
+        
         const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}`
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
         );
         const data = await response.json();
 
         if (!data.length) {
-            alert("Location not found: " + place);
-            return null;
+            throw new Error(`Location not found: ${place}`);
+        }
+
+        // Validate the location returned is actually within Thrissur
+        const displayName = (data[0].display_name || "").toLowerCase();
+        if (!displayName.includes("thrissur")) {
+            throw new Error("Demo restricted to Thrissur district. Area is outside Thrissur.");
         }
 
         return {
@@ -56,12 +65,110 @@ async function geocodeLocation(place) {
         };
     } catch (e) {
         console.error("Geocoding error:", e);
-        return null;
+        throw e;
     }
 }
 
+// -------- AUTHENTICATION STATUS --------
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/user_status');
+        const data = await response.json();
+        const authLinks = document.getElementById('auth-links');
+        
+        if (data.logged_in) {
+            currentUser = data.username;
+            authLinks.innerHTML = `
+                <span class="nav-welcome">Hi, ${data.username}!</span>
+                <a href="/history" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i> History</a>
+                <a href="#" onclick="logoutUser(event)" class="nav-link"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+            `;
+        }
+    } catch (e) {
+        console.error("Auth status fetch failed:", e);
+    }
+}
+
+window.logoutUser = async function(e) {
+    if(e) e.preventDefault();
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.reload();
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// -------- AUTOCOMPLETE --------
+function setupAutocomplete(inputId, suggestionsId) {
+    const input = document.getElementById(inputId);
+    const suggestionsBox = document.getElementById(suggestionsId);
+    let timeout = null;
+
+    input.addEventListener('input', (e) => {
+        clearTimeout(timeout);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.add('hidden');
+            return;
+        }
+
+        timeout = setTimeout(async () => {
+            try {
+                // Force context to Thrissur for fetching options
+                const searchQuery = query.toLowerCase().includes("thrissur") ? query : `${query}, Thrissur, Kerala`;
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+                const data = await response.json();
+                
+                suggestionsBox.innerHTML = '';
+                
+                // Keep only valid options in Thrissur
+                const validPlaces = data.filter(item => (item.display_name || "").toLowerCase().includes("thrissur"));
+
+                if (validPlaces.length === 0) {
+                    suggestionsBox.classList.add('hidden');
+                    return;
+                }
+
+                validPlaces.forEach(place => {
+                    // Shorten the display name for UI
+                    const nameParts = place.display_name.split(',');
+                    const shortName = nameParts.slice(0, Math.min(3, nameParts.length)).join(',').trim();
+                    
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${shortName}</span>`;
+                    
+                    div.addEventListener('click', () => {
+                        input.value = shortName;
+                        suggestionsBox.classList.add('hidden');
+                    });
+                    suggestionsBox.appendChild(div);
+                });
+                suggestionsBox.classList.remove('hidden');
+            } catch (err) {
+                console.error("Autocomplete fetch error:", err);
+            }
+        }, 500); // 500ms debounce
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+        if (e.target !== input && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.classList.add('hidden');
+        }
+    }); // Make sure this bracket closes the setupAutocomplete function nicely
+}
+
+// -------- START APP --------
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
+    checkAuthStatus();
+    
+    setupAutocomplete('startLocation', 'startSuggestions');
+    setupAutocomplete('destination', 'destSuggestions');
 
     // Select Elements
     const scrollToAnalyzeBtn = document.getElementById('scrollToAnalyze');
@@ -283,9 +390,16 @@ document.addEventListener('DOMContentLoaded', () => {
     routeForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const start = document.getElementById('startLocation').value;
-        const dest = document.getElementById('destination').value;
-        if (!start || !dest) return;
+        const start = document.getElementById('startLocation').value.trim();
+        const dest = document.getElementById('destination').value.trim();
+        const frontendError = document.getElementById('frontend-error');
+        frontendError.classList.add('hidden');
+
+        if (!start || !dest) {
+            frontendError.textContent = "Please enter both a start location and a destination.";
+            frontendError.classList.remove('hidden');
+            return;
+        }
 
         try {
             setLoading(true, "Locating start and destination...");
@@ -294,11 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const startCoords = await geocodeLocation(start);
             const endCoords = await geocodeLocation(dest);
-            if (!startCoords || !endCoords) { setLoading(false); return; }
 
             setLoading(true, "Generating optimal route path...");
             const routeData = await getRoute(startCoords, endCoords);
-            if (!routeData) { setLoading(false); return; }
+            if (!routeData) throw new Error("Could not compute route geometry.");
 
             const route_segments = buildRouteSegments(routeData.coordinates);
 
@@ -311,12 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    start: start,
-                    destination: dest,
+                    start_location: start,
+                    end_location: dest,
                     segments: route_segments,
                     route_distance: routeData.distance
                 })
             });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || "Server failed to process the route analysis.");
+            }
 
             setLoading(true, "Calculating ML risk scores...");
             const backenddata = await response.json();
@@ -333,8 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
             animateRiskBars();
 
         } catch (error) {
-            console.error("Analysis failed", error);
-            alert("An error occurred during analysis.");
+            console.error("Analysis failed:", error);
+            const frontendError = document.getElementById('frontend-error');
+            frontendError.textContent = error.message || "An unexpected error occurred during analysis.";
+            frontendError.classList.remove('hidden');
         } finally {
             setLoading(false);
         }
