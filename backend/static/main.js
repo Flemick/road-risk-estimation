@@ -41,8 +41,8 @@ function getTimeOfDay() {
 
 async function geocodeLocation(place) {
     try {
-        // Automatically contextualize the search to Thrissur for the demo
-        const searchQuery = place.toLowerCase().includes("thrissur") ? place : `${place}, Thrissur, Kerala`;
+        // Automatically contextualize the search to Kerala state
+        const searchQuery = place.toLowerCase().includes("kerala") ? place : `${place}, Kerala`;
         
         const response = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
@@ -53,10 +53,10 @@ async function geocodeLocation(place) {
             throw new Error(`Location not found: ${place}`);
         }
 
-        // Validate the location returned is actually within Thrissur
+        // Validate the location returned is actually within Kerala
         const displayName = (data[0].display_name || "").toLowerCase();
-        if (!displayName.includes("thrissur")) {
-            throw new Error("Demo restricted to Thrissur district. Area is outside Thrissur.");
+        if (!displayName.includes("kerala")) {
+            throw new Error("Demo restricted to Kerala state. Area is outside Kerala.");
         }
 
         return {
@@ -117,15 +117,15 @@ function setupAutocomplete(inputId, suggestionsId) {
 
         timeout = setTimeout(async () => {
             try {
-                // Force context to Thrissur for fetching options
-                const searchQuery = query.toLowerCase().includes("thrissur") ? query : `${query}, Thrissur, Kerala`;
+                // Force context to Kerala for fetching options
+                const searchQuery = query.toLowerCase().includes("kerala") ? query : `${query}, Kerala`;
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
                 const data = await response.json();
                 
                 suggestionsBox.innerHTML = '';
                 
-                // Keep only valid options in Thrissur
-                const validPlaces = data.filter(item => (item.display_name || "").toLowerCase().includes("thrissur"));
+                // Keep only valid options in Kerala
+                const validPlaces = data.filter(item => (item.display_name || "").toLowerCase().includes("kerala"));
 
                 if (validPlaces.length === 0) {
                     suggestionsBox.classList.add('hidden');
@@ -201,17 +201,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getRoute(startCoords, endCoords) {
         try {
             const url = `https://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${endCoords.lng},${endCoords.lat}?overview=full&geometries=geojson`;
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (!data.routes || !data.routes.length) {
-                alert("Route not found.");
-                return null;
-            }
-
+            const routeResponse = await fetch(url);
+            const routeJSON = await routeResponse.json();
+        
+            if (routeJSON.code !== 'Ok') throw new Error("Could not find a driving route.");
+            const routeData = routeJSON.routes[0];
+            const routeDistanceKm = (routeData.distance / 1000).toFixed(2);
+            
             return {
-                coordinates: data.routes[0].geometry.coordinates,
-                distance: data.routes[0].distance
+                coordinates: routeData.geometry.coordinates,
+                distance: routeData.distance,
+                distanceKm: routeDistanceKm
             };
         } catch (e) {
             console.error("Routing error:", e);
@@ -318,7 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
         riskLevelText.textContent = data.riskLevel;
         riskLevelText.style.color = data.riskColor;
 
-        warningMessage.textContent = data.warning;
+        const distanceHtml = data.routeDistanceKm ? `<strong>Distance:</strong> ${data.routeDistanceKm} km &bull; ` : "";
+        warningMessage.innerHTML = distanceHtml + data.warning;
         warningBox.style.borderColor = data.riskColor;
         warningBox.style.opacity = '0';
         setTimeout(() => {
@@ -438,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             setLoading(true, "Calculating ML risk scores...");
             const backenddata = await response.json();
+            backenddata.routeDistanceKm = routeData.distanceKm;
 
             setLoading(true, "Finalizing safety report...");
 
